@@ -1,0 +1,100 @@
+/* Общие стили */
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f4f4f4;
+    margin: 0;
+    padding: 0;
+}
+
+.container {
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background-color: #fff;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    border-radius: 8px;
+}
+
+h1, h2 {
+    color: #333;
+}
+
+/* Стили для формы */
+.form-container {
+    margin-bottom: 20px;
+}
+
+.form-container label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+}
+
+.form-container input[type="text"],
+.form-container input[type="number"],
+.form-container textarea {
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+.form-container button {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.form-container button:hover {
+    background-color: #218838;
+}
+
+/* Стили для списка товаров */
+.products-container ul {
+    list-style-type: none;
+    padding: 0;
+}
+
+.products-container li {
+    background-color: #f9f9f9;
+    margin-bottom: 10px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.products-container li strong {
+    font-size: 1.2em;
+    color: #333;
+}
+
+.products-container li p {
+    margin: 5px 0;
+    color: #555;
+}
+
+.products-container button {
+    margin-right: 10px;
+    padding: 5px 10px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.products-container button:nth-child(1) {
+    background-color: #ffc107;
+    color: black;
+}
+
+.products-container button:nth-child(2) {
+    background-color: #dc3545;
+    color: white;
+}
+
+.products-container button:hover {
+    opacity: 0.8;
+}

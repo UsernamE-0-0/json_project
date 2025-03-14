@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Интернет-магазин</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Интернет-магазин</h1>
+
+        <!-- Список товаров -->
+        <div class="products-container">
+            <h2>Товары</h2>
+            <ul id="productList"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Функция для загрузки товаров с сервера
+        async function loadProducts() {
+            const response = await fetch('/api/products');
+            const products = await response.json();
+            const productList = document.getElementById('productList');
+            productList.innerHTML = '';
+
+            products.forEach(product => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${product.name}</strong> - ${product.price} руб.
+                    <p>${product.description}</p>
+                    <p>Категория: ${product.category}</p>
+                `;
+                productList.appendChild(li);
+            });
+        }
+
+        // Загружаем товары при загрузке страницы
+        window.onload = loadProducts;
+    </script>
+</body>
+</html>

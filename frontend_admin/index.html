@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Панель администратора</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Панель администратора</h1>
+
+        <!-- Форма для добавления товара -->
+        <div class="form-container">
+            <h2>Добавить новый товар</h2>
+            <form id="addProductForm">
+                <label for="name">Название:</label>
+                <input type="text" id="name" name="name" required>
+
+                <label for="price">Цена:</label>
+                <input type="number" id="price" name="price" required>
+
+                <label for="description">Описание:</label>
+                <textarea id="description" name="description" required></textarea>
+
+                <label for="category">Категория:</label>
+                <input type="text" id="category" name="category" required>
+
+                <button type="submit">Добавить товар</button>
+            </form>
+        </div>
+
+        <!-- Список товаров -->
+        <div class="products-container">
+            <h2>Список товаров</h2>
+            <ul id="productList"></ul>
+        </div>
+    </div>
+
+    <script>
+        // Функция для загрузки товаров с сервера
+        async function loadProducts() {
+            const response = await fetch('/api/products');
+            const products = await response.json();
+            const productList = document.getElementById('productList');
+            productList.innerHTML = '';
+
+            products.forEach(product => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <strong>${product.name}</strong> - ${product.price} руб.
+                    <p>${product.description}</p>
+                    <p>Категория: ${product.category}</p>
+                    <button onclick="editProduct(${product.id})">Редактировать</button>
+                    <button onclick="deleteProduct(${product.id})">Удалить</button>
+                `;
+                productList.appendChild(li);
+            });
+        }
+
+        // Функция для добавления товара
+        document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const newProduct = {
+                id: Date.now(), // Генерация уникального ID
+                name: document.getElementById('name').value,
+                price: parseFloat(document.getElementById('price').value),
+                description: document.getElementById('description').value,
+                category: document.getElementById('category').value
+            };
+
+            await fetch('/api/products', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(newProduct)
+            });
+
+            loadProducts(); // Перезагружаем список товаров
+            document.getElementById('addProductForm').reset(); // Очищаем форму
+        });
+
+        // Функция для редактирования товара
+        async function editProduct(id) {
+            const newName = prompt('Введите новое название товара:');
+            const newPrice = parseFloat(prompt('Введите новую цену товара:'));
+            const newDescription = prompt('Введите новое описание товара:');
+            const newCategory = prompt('Введите новую категорию товара:');
+
+            const updatedProduct = {
+                id: id,
+                name: newName,
+                price: newPrice,
+                description: newDescription,
+                category: newCategory
+            };
+
+            await fetch(`/api/products/${id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(updatedProduct)
+            });
+
+            loadProducts(); // Перезагружаем список товаров
+        }
+
+        // Функция для удаления товара
+        async function deleteProduct(id) {
+            await fetch(`/api/products/${id}`, {
+                method: 'DELETE'
+            });
+
+            loadProducts(); // Перезагружаем список товаров
+        }
+
+        // Загружаем товары при загрузке страницы
+        window.onload = loadProducts;
+    </script>
+</body>
+</html>
