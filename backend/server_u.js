@@ -1,29 +1,78 @@
 const express = require('express');
+const { ApolloServer, gql } = require('apollo-server-express');
+const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
 const port = 8080;
 
-// Путь к файлу с данными о товарах
-const productsFilePath = path.join(__dirname, 'products.json');
+// GraphQL схема
+const typeDefs = gql`
+    type Product {
+        id: ID!
+        name: String!
+        price: Float!
+        description: String
+        category: String
+    }
 
-// Функция для чтения данных из файла
-function readProductsFromFile() {
-    const data = fs.readFileSync(productsFilePath, 'utf8');
+    type Query {
+        products: [Product]
+    }
+`;
+
+// Загрузка товаров
+function getProducts() {
+    const data = fs.readFileSync(path.join(__dirname, 'products.json'));
     return JSON.parse(data);
 }
 
-// Статические файлы (HTML, CSS, JS)
-app.use(express.static(path.join(__dirname, '../frontend_user')));
+// GraphQL resolvers
+const resolvers = {
+    Query: {
+        products: () => getProducts()
+    }
+};
 
-// Маршрут для получения списка товаров
-app.get('/api/products', (req, res) => {
-    const products = readProductsFromFile();
-    res.json(products);
-});
+// Настройка Apollo Server
+const server = new ApolloServer({ typeDefs, resolvers });
 
-// Запуск сервера
-app.listen(port, () => {
-    console.log(`User interface is running on http://localhost:${port}`);
-});
+async function startServer() {
+    await server.start();
+    server.applyMiddleware({ app });
+
+    app.use(express.static(path.join(__dirname, '../frontend_user')));
+
+    const httpServer = app.listen(port, () => {
+        console.log(`
+            Сервер пользователя успешно запущен!
+            Доступные адреса:
+            - Основной интерфейс: http://localhost:${port}
+            - GraphQL API: http://localhost:${port}/graphql
+            `);
+    });
+
+    // WebSocket сервер
+    const wss = new WebSocket.Server({ server: httpServer });
+
+    wss.on('connection', (ws) => {
+        console.log('Новое подключение к чату');
+
+        ws.on('message', (message) => {
+            try {
+                const msg = JSON.parse(message);
+                // Рассылка всем клиентам
+                wss.clients.forEach(client => {
+                    if (client.readyState === WebSocket.OPEN) {
+                        client.send(JSON.stringify(msg));
+                    }
+                });
+            } catch (err) {
+                console.error('Ошибка обработки сообщения:', err);
+            }
+        });
+    });
+}
+
+startServer();

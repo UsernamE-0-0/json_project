@@ -1,12 +1,5 @@
 [
   {
-    "id": 2,
-    "name": "коврик",
-    "price": 10000,
-    "description": "супер",
-    "category": "быт"
-  },
-  {
     "id": 3,
     "name": "Книга",
     "price": 1000,
@@ -18,10 +11,11 @@
   {
     "id": 6,
     "name": "мышка",
-    "price": "1000",
+    "price": 100,
     "description": "супер",
     "categories": [
       "техника"
-    ]
+    ],
+    "category": ""
   }
 ]

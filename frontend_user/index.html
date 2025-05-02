@@ -10,34 +10,142 @@
     <div class="container">
         <h1>Интернет-магазин</h1>
 
-        <!-- Список товаров -->
+        <div class="filter-box">
+            <h3>Выберите поля для отображения:</h3>
+            <div>
+                <input type="checkbox" id="showName" checked> <label for="showName">Название</label>
+                <input type="checkbox" id="showPrice" checked> <label for="showPrice">Цена</label>
+                <input type="checkbox" id="showDesc"> <label for="showDesc">Описание</label>
+                <button onclick="applyFilters()">Применить</button>
+            </div>
+        </div>
+
         <div class="products-container">
             <h2>Товары</h2>
             <ul id="productList"></ul>
         </div>
+
+        <div class="chat-box">
+            <h3>Чат поддержки</h3>
+            <div id="chatMessages" class="chat-messages"></div>
+            <div class="chat-input">
+                <textarea 
+                    id="chatInput" 
+                    placeholder="Введите ваш вопрос здесь..." 
+                    rows="3"
+                    class="chat-textarea"
+                ></textarea>
+                <button onclick="sendChatMessage()" class="chat-send-btn">Отправить</button>
+            </div>
+        </div>
     </div>
 
     <script>
-        // Функция для загрузки товаров с сервера
-        async function loadProducts() {
-            const response = await fetch('/api/products');
-            const products = await response.json();
-            const productList = document.getElementById('productList');
-            productList.innerHTML = '';
-
-            products.forEach(product => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <strong>${product.name}</strong> - ${product.price} руб.
-                    <p>${product.description}</p>
-                    <p>Категория: ${product.category}</p>
-                `;
-                productList.appendChild(li);
-            });
+        // WebSocket соединение
+        const ws = new WebSocket(`ws://localhost:3000`);
+        
+        // Функция отображения сообщения
+        function displayMessage(sender, text, timestamp) {
+            const chat = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `
+                <span class="sender">${sender === 'user' ? 'Вы' : 'Поддержка'}:</span>
+                <span class="text">${text}</span>
+                <span class="time">${new Date(timestamp).toLocaleTimeString()}</span>
+            `;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
         }
-
-        // Загружаем товары при загрузке страницы
-        window.onload = loadProducts;
+        
+        // Обработчик входящих сообщений
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.sender === 'admin') {
+                displayMessage('admin', msg.text, msg.timestamp);
+            }
+        };
+        
+        // Отправка сообщения
+        function sendChatMessage() {
+            const input = document.getElementById('chatInput');
+            const text = input.value.trim();
+            
+            if (text && ws.readyState === WebSocket.OPEN) {
+                const msg = {
+                    sender: 'user',
+                    text: text,
+                    timestamp: new Date().toISOString()
+                };
+                
+                ws.send(JSON.stringify(msg));
+                displayMessage('user', text, msg.timestamp);
+                input.value = '';
+            }
+        }
+        
+        // Обработка нажатия Enter
+        document.getElementById('chatInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+        
+        // Загрузка товаров с фильтрацией
+        async function loadProducts(fields = ['name', 'price']) {
+            try {
+                const query = `
+                    query {
+                        products {
+                            ${fields.join(' ')}
+                        }
+                    }
+                `;
+                
+                const response = await fetch('/graphql', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query })
+                });
+                
+                const { data } = await response.json();
+                renderProducts(data.products);
+            } catch (error) {
+                console.error('Ошибка загрузки товаров:', error);
+            }
+        }
+        
+        function renderProducts(products) {
+            const list = document.getElementById('productList');
+            list.innerHTML = products.map(product => `
+                <li>
+                    ${product.name ? `<strong>${product.name}</strong>` : ''}
+                    ${product.price ? ` - ${product.price} руб.` : ''}
+                    ${product.description ? `<p>${product.description}</p>` : ''}
+                </li>
+            `).join('');
+        }
+        
+        // Применение фильтров
+        function applyFilters() {
+            const fields = [];
+            if (document.getElementById('showName').checked) fields.push('name');
+            if (document.getElementById('showPrice').checked) fields.push('price');
+            if (document.getElementById('showDesc').checked) fields.push('description');
+            
+            loadProducts(fields);
+        }
+        
+        // Инициализация
+        window.onload = () => {
+            loadProducts();
+            document.getElementById('chatInput').focus();
+            
+            // Проверка соединения
+            ws.onopen = () => console.log('Соединение с чатом установлено');
+            ws.onerror = (error) => console.error('Ошибка WebSocket:', error);
+        };
     </script>
 </body>
 </html>

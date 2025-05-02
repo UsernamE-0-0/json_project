@@ -10,115 +10,241 @@
     <div class="container">
         <h1>Панель администратора</h1>
 
-        <!-- Форма для добавления товара -->
         <div class="form-container">
-            <h2>Добавить новый товар</h2>
-            <form id="addProductForm">
+            <h2>Добавить товар</h2>
+            <form id="productForm">
                 <label for="name">Название:</label>
-                <input type="text" id="name" name="name" required>
-
+                <input type="text" id="name" required>
+                
                 <label for="price">Цена:</label>
-                <input type="number" id="price" name="price" required>
-
-                <label for="description">Описание:</label>
-                <textarea id="description" name="description" required></textarea>
-
+                <input type="number" id="price" step="0.01" required>
+                
+                <label for="desc">Описание:</label>
+                <textarea id="desc"></textarea>
+                
                 <label for="category">Категория:</label>
-                <input type="text" id="category" name="category" required>
-
-                <button type="submit">Добавить товар</button>
+                <input type="text" id="category">
+                
+                <button type="button" onclick="addProduct()">Добавить товар</button>
             </form>
         </div>
 
-        <!-- Список товаров -->
-        <div class="products-container">
+        <div class="products-list">
             <h2>Список товаров</h2>
-            <ul id="productList"></ul>
+            <div class="product-filters">
+                <input type="text" id="searchInput" placeholder="Поиск товаров..." oninput="filterProducts()">
+            </div>
+            <ul id="adminProductList"></ul>
+        </div>
+
+        <div class="chat-box">
+            <h3>Чат с клиентами</h3>
+            <div id="adminChat" class="chat-messages"></div>
+            <div class="chat-input">
+                <textarea 
+                    id="adminChatInput" 
+                    placeholder="Введите ответ клиенту..." 
+                    rows="3"
+                    class="chat-textarea"
+                ></textarea>
+                <button onclick="sendAdminMessage()" class="chat-send-btn">Отправить</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // Функция для загрузки товаров с сервера
-        async function loadProducts() {
-            const response = await fetch('/api/products');
-            const products = await response.json();
-            const productList = document.getElementById('productList');
-            productList.innerHTML = '';
-
-            products.forEach(product => {
-                const li = document.createElement('li');
-                li.innerHTML = `
-                    <strong>${product.name}</strong> - ${product.price} руб.
-                    <p>${product.description}</p>
-                    <p>Категория: ${product.category}</p>
-                    <button onclick="editProduct(${product.id})">Редактировать</button>
-                    <button onclick="deleteProduct(${product.id})">Удалить</button>
-                `;
-                productList.appendChild(li);
-            });
+        // WebSocket чат 
+        const ws = new WebSocket('ws://localhost:3000');
+        
+        // Отображение сообщения в чате
+        function displayChatMessage(sender, text, timestamp) {
+            const chat = document.getElementById('adminChat');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            messageDiv.innerHTML = `
+                <span class="sender">${sender === 'admin' ? 'Вы' : 'Клиент'}:</span>
+                <span class="text">${text}</span>
+                <span class="time">${new Date(timestamp).toLocaleTimeString()}</span>
+            `;
+            chat.appendChild(messageDiv);
+            chat.scrollTop = chat.scrollHeight;
         }
-
-        // Функция для добавления товара
-        document.getElementById('addProductForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const newProduct = {
-                id: Date.now(), // Генерация уникального ID
-                name: document.getElementById('name').value,
-                price: parseFloat(document.getElementById('price').value),
-                description: document.getElementById('description').value,
-                category: document.getElementById('category').value
-            };
-
-            await fetch('/api/products', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(newProduct)
-            });
-
-            loadProducts(); // Перезагружаем список товаров
-            document.getElementById('addProductForm').reset(); // Очищаем форму
+        
+        // Обработка входящих сообщений
+        ws.onmessage = (event) => {
+            const msg = JSON.parse(event.data);
+            if (msg.sender === 'user') {
+                displayChatMessage('user', msg.text, msg.timestamp);
+            }
+        };
+        
+        // Отправка сообщения
+        function sendAdminMessage() {
+            const input = document.getElementById('adminChatInput');
+            const text = input.value.trim();
+            
+            if (text && ws.readyState === WebSocket.OPEN) {
+                const msg = {
+                    sender: 'admin',
+                    text: text,
+                    timestamp: new Date().toISOString()
+                };
+                
+                ws.send(JSON.stringify(msg));
+                displayChatMessage('admin', text, msg.timestamp);
+                input.value = '';
+            }
+        }
+        
+        // Обработка нажатия Enter (Shift+Enter - перенос строки)
+        document.getElementById('adminChatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendAdminMessage();
+            }
         });
 
-        // Функция для редактирования товара
-        async function editProduct(id) {
-            const newName = prompt('Введите новое название товара:');
-            const newPrice = parseFloat(prompt('Введите новую цену товара:'));
-            const newDescription = prompt('Введите новое описание товара:');
-            const newCategory = prompt('Введите новую категорию товара:');
-
-            const updatedProduct = {
-                id: id,
-                name: newName,
-                price: newPrice,
-                description: newDescription,
-                category: newCategory
+        
+        // Загрузка товаров
+        async function loadProducts() {
+            try {
+                const response = await fetch('/api/products');
+                const products = await response.json();
+                renderProducts(products);
+            } catch (error) {
+                console.error('Ошибка загрузки товаров:', error);
+            }
+        }
+        
+        // Отображение товаров
+        function renderProducts(products) {
+            const list = document.getElementById('adminProductList');
+            list.innerHTML = products.map(product => `
+                <li data-id="${product.id}">
+                    <div class="product-info">
+                        <strong>${product.name}</strong>
+                        <span>${product.price} руб.</span>
+                        ${product.description ? `<p>${product.description}</p>` : ''}
+                        ${product.category ? `<small>Категория: ${product.category}</small>` : ''}
+                    </div>
+                    <div class="product-actions">
+                        <button onclick="editProduct(${product.id})" class="edit-btn">✏️</button>
+                        <button onclick="deleteProduct(${product.id})" class="delete-btn">🗑️</button>
+                    </div>
+                </li>
+            `).join('');
+        }
+        
+        // Фильтрация товаров
+        function filterProducts() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const items = document.querySelectorAll('#adminProductList li');
+            
+            items.forEach(item => {
+                const text = item.textContent.toLowerCase();
+                item.style.display = text.includes(searchTerm) ? '' : 'none';
+            });
+        }
+        
+        // Добавление товара
+        async function addProduct() {
+            const newProduct = {
+                name: document.getElementById('name').value,
+                price: parseFloat(document.getElementById('price').value),
+                description: document.getElementById('desc').value,
+                category: document.getElementById('category').value,
+                id: Date.now()
             };
+            
+            try {
+                const response = await fetch('/api/products', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(newProduct)
+                });
+                
+                if (response.ok) {
+                    loadProducts();
+                    document.getElementById('productForm').reset();
+                }
+            } catch (error) {
+                console.error('Ошибка добавления товара:', error);
+            }
+        }
+        
+        // Редактирование товара
+        async function editProduct(id) {
+            const products = await (await fetch('/api/products')).json();
+            const product = products.find(p => p.id === id);
+        
+            if (product) {
+              // Заполняем форму данными товара
+              document.getElementById('name').value = product.name;
+              document.getElementById('price').value = product.price;
+              document.getElementById('desc').value = product.description || '';
+              document.getElementById('category').value = product.category || '';
+          
+              // Меняем кнопку "Добавить" на "Сохранить"
+              const submitBtn = document.querySelector('#productForm button');
+              submitBtn.textContent = 'Сохранить';
+              submitBtn.onclick = () => updateProduct(id); // Теперь будет вызывать updateProduct
+            }
+        }
 
-            await fetch(`/api/products/${id}`, {
+        // Функция обновления товара
+        async function updateProduct(id) {
+            const updatedProduct = {
+                name: document.getElementById('name').value,
+                price: parseFloat(document.getElementById('price').value),
+                description: document.getElementById('desc').value,
+                category: document.getElementById('category').value,
+            };
+        
+            try {
+            const response = await fetch(`/api/products/${id}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(updatedProduct)
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updatedProduct),
             });
-
-            loadProducts(); // Перезагружаем список товаров
+        
+            if (response.ok) {
+                loadProducts();
+                document.getElementById('productForm').reset();
+                const submitBtn = document.querySelector('#productForm button');
+                submitBtn.textContent = 'Добавить товар';
+                submitBtn.onclick = addProduct; // Возвращаем исходное поведение
+            }
+            } catch (error) {
+                console.error('Ошибка обновления товара:', error);
+            }
         }
-
-        // Функция для удаления товара
+        
+        // Удаление товара
         async function deleteProduct(id) {
-            await fetch(`/api/products/${id}`, {
-                method: 'DELETE'
-            });
+            if (!confirm('Вы уверены, что хотите удалить этот товар?')) return;         
+            try {
+                const response = await fetch(`/api/products/${id}`, {
+                    method: 'DELETE',
+            });       
+                if (response.ok) {
+                    loadProducts(); // Перезагружаем список
+                } else {
+                    console.error('Ошибка удаления:', await response.json());
+                }
+                } catch (error) {
+                console.error('Ошибка удаления товара:', error);
+                }
+            }
 
-            loadProducts(); // Перезагружаем список товаров
-        }
-
-        // Загружаем товары при загрузке страницы
-        window.onload = loadProducts;
+        // Инициализация 
+        window.onload = () => {
+            loadProducts();
+            document.getElementById('adminChatInput').focus();
+            
+            // Проверка соединения WebSocket
+            ws.onopen = () => console.log('WebSocket соединение установлено');
+            ws.onerror = (error) => console.error('WebSocket ошибка:', error);
+        };
     </script>
 </body>
 </html>
