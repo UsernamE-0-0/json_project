@@ -1,10 +1,12 @@
 const express = require('express');
+const cors = require('cors');
 const { ApolloServer, gql } = require('apollo-server-express');
 const WebSocket = require('ws');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
+app.use(cors());
 const port = 8080;
 
 // GraphQL схема

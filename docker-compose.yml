@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "3000:3000"  # Админ-сервер (REST API)
+      - "8080:8080"  # Пользовательский сервер (GraphQL)
+    volumes:
+      - ./backend/products.json:/app/products.json  # Сохраняем данные товаров
+    restart: unless-stopped
+
+  frontend_admin:
+    build: ./frontend_admin
+    ports:
+      - "4000:80"    # Админ-панель
+    depends_on:
+      - backend
+
+  frontend_user:
+    build: ./frontend_user
+    ports:
+      - "5000:80"    # Пользовательский интерфейс
+    depends_on:
+      - backend

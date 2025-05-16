@@ -6,6 +6,12 @@ const path = require('path');
 const app = express();
 const port = 3000;
 
+const cors = require('cors');
+app.use(cors({
+  origin: ['http://localhost:4000', 'http://localhost:5000'],
+  credentials: true
+}));
+
 app.use(express.json());
 app.use(express.static(path.join(__dirname, '../frontend_admin')));
 
